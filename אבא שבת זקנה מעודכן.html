@@ -254,7 +254,7 @@ try{
 if(!PEOPLE.length)PEOPLE=NAMES.map(name=>({name,phone:'',active:true,mode:'flexible'}));
 // שמות שהיו קיימים בגרסאות קודמות נשארים ברשימה גם אם נוספו באופן ידני לשיבוץ.
 NAMES.forEach(name=>{if(!PEOPLE.some(p=>p.name===name))PEOPLE.push({name,phone:'',active:true,mode:'flexible'})});
-function savePeople(){NAMES=PEOPLE.map(p=>p.name);try{localStorage.setItem('luach_people',JSON.stringify(PEOPLE));localStorage.setItem('luach_names_list',JSON.stringify(NAMES));}catch(e){toast('⚠ לא ניתן לשמור את רשימת האנשים במכשיר');}}
+function savePeople(){NAMES=PEOPLE.map(p=>p.name);try{localStorage.setItem('luach_people_t',String(Date.now()));}catch(e){}try{localStorage.setItem('luach_people',JSON.stringify(PEOPLE));localStorage.setItem('luach_names_list',JSON.stringify(NAMES));}catch(e){toast('⚠ לא ניתן לשמור את רשימת האנשים במכשיר');}try{window.GS&&GS.pushPeople&&GS.pushPeople()}catch(e){}}
 function peopleDlg(){
  const active=PEOPLE.filter(p=>p.active).length;
  $('peopleSh').innerHTML=`<h2>👥 ניהול אנשים</h2><p>כאן מנהלים את רשימת המשתתפים שמופיעים בבחירת "אבא של שבת". השמות והשיבוצים הקיימים נשמרים. הנעילה מתבצעת לכל שיבוץ בנפרד מתוך פרטי השבת; אדם יכול להופיע בשיבוצים אחרים כרגיל.</p>
@@ -265,7 +265,7 @@ function peopleDlg(){
  <div class="r2"><button class="ib gh" id="personClear" type="button">נקה</button><button class="ib" id="personSave" type="button">הוסף לרשימה</button></div>
  <input type="hidden" id="personOldName" value="">
  </div><div class="people-list">${PEOPLE.map((p,i)=>`<div class="person-card"><div class="person-main"><div class="person-name">${esc(p.name)}</div><div class="person-meta">${p.phone?esc(p.phone)+' · ':''}${p.active?'פעיל':'לא פעיל'}</div></div><div class="person-actions"><button class="mini-btn" data-tl="${esc(p.name)}" type="button">ציר זמן</button><button class="mini-btn" data-person-edit="${i}" type="button">עריכה</button><button class="mini-btn ${p.active?'danger':''}" data-person-toggle="${i}" type="button">${p.active?'השהה':'הפעל'}</button></div></div>`).join('')}</div>
- <div class="hint">השהיית אדם מסירה אותו מבחירות חדשות, אך לא מוחקת שיבוצים היסטוריים. הנתונים בשלב זה נשמרים במכשיר; סנכרון הענן יתווסף לאחר הקמת פרויקט Google.</div>
+ <div class="hint">השהיית אדם מסירה אותו מבחירות חדשות, אך לא מוחקת שיבוצים היסטוריים. הנתונים נשמרים ב-Google Sheets שלך.</div>
  <button class="ib gh" id="peopleClose" style="width:100%;padding:12px">סגירה</button>`;
  $('ov4').classList.add('on');
 }
@@ -378,18 +378,7 @@ function push(y){saveLocal();if(!DB){st('📱 נשמר מקומית במכשיר
   if(v&&v.j===j)st('☁ נשמר בענן · '+new Date().toLocaleTimeString('he-IL'));
   else{st('⚠ הענן לא קלט את השינוי · נשמר במכשיר');toast('⚠ הענן לא קלט את השינוי')}})
  .catch(()=>{st('⚠ השמירה בענן נכשלה · נשמר במכשיר');toast('⚠ השמירה בענן נכשלה')})}
-async function initDb(){
- try{DB=await claude.use('db')}catch(e){DB=null}
- try{DL=await claude.use('downloads')}catch(e){DL=null}
- if(!DB){st('📱 נשמר מקומית במכשיר');return}
- st('☁ נשמר בענן');let first=true;
- DB.doc('prefs/main').get().then(s=>{const v=s.exists&&s.data();if(v&&typeof v.y==='number'&&v.y>=0&&v.y<DATA.length){/* שומרים על החישוב האוטומטי או מעדיפים ענן אם עודכן */} }).catch(()=>{});
- DB.collection('luach').onSnapshot(s=>{
-  const ids=new Set(s.docs.map(d=>d.id));
-  if(first){first=false;Object.keys(E).forEach(y=>{if(!ids.has('y'+y)&&has(E[y]))push(y)})}
-  s.docs.forEach(d=>{const m=/y(\d+)$/.exec(d.id);if(!m)return;const v=d.data()||{},y=m[1],l=E[y];if(l&&(l.t||0)>=(v.t||0))return;let o={};try{o=v.j?JSON.parse(v.j):{n:v.n,z:v.z}}catch(e){}E[y]={n:o.n||{},z:o.z||{},k:o.k||{},u:o.u||{},t:v.t||0}});
-  saveLocal();render(false)},()=>st('⚠ אין חיבור לענן · נשמר במכשיר'));
-}
+async function initDb(){DL=null;DB=null}
 function chips(){
  $('ys').innerHTML=DATA.map((d,i)=>`<option value="${i}" ${i===Y?'selected':''}>שנת ${d.t}</option>`).join('');$('pv').disabled=Y<=0;$('nx').disabled=Y>=DATA.length-1;
  $('fl').innerHTML=[['all','הכול'],['ev','אירועים מיוחדים'],['set','עם אבא'],['no','ללא אבא'],['az','עם אזכרות']].map(([k,t])=>`<button class="ch ${k==='ev'?'f':''} ${F===k?'on':''}" data-f="${k}">${t}</button>`).join('');
@@ -1253,5 +1242,157 @@ document.addEventListener('click',e=>{
  if(d.tlWa!==undefined){xTlWa();return}
  if(d.xBack!==undefined){(window.__xBack||peopleDlg)();return}
 });
+</script>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+/* ===== Google Sign-In + Google Sheets sync ===== */
+const GOOGLE_CLIENT_ID='PASTE_CLIENT_ID_HERE';
+const GS=(()=>{
+ const SCOPE='https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email';
+ const TITLE='לוח פרשות ואבות - נתונים';
+ let tc=null,token=null,tokenExp=0,sid=null,rows={},timer=null,poll=null,ready=false,readyCb=[],inflight=false,first=true,lastSnap='';
+ const LS=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v)}catch(e){return null}};
+ function ui(){
+  let b=$('gsBar');
+  if(!b){b=document.createElement('div');b.id='gsBar';b.style.cssText='margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px';$('st').after(b)}
+  return b;
+ }
+ function showLogin(msg){
+  const b=ui();
+  b.innerHTML='<span>'+(msg||'כדי לשמור ב-Google Sheets יש להתחבר')+'</span><button class="ib" id="gsLogin" type="button" style="padding:7px 14px">התחברות עם Google</button>';
+  $('gsLogin').onclick=()=>login(true);
+ }
+ function showUser(email){
+  const b=ui();
+  b.innerHTML='<span>👤 '+esc(email||'')+'</span>'+(sid?'<a href="https://docs.google.com/spreadsheets/d/'+sid+'" target="_blank" rel="noopener" style="color:inherit">📄 פתיחת הגיליון</a>':'')+'<button class="ib gh" id="gsOut" type="button" style="padding:5px 12px">התנתקות</button>';
+  $('gsOut').onclick=logout;
+ }
+ function login(interactive){
+  if(!window.google||!google.accounts){st('טוען התחברות Google…');setTimeout(()=>login(interactive),500);return}
+  if(GOOGLE_CLIENT_ID.startsWith('PASTE')){st('⚠ חסר Client ID של Google');return}
+  if(!tc)tc=google.accounts.oauth2.initTokenClient({client_id:GOOGLE_CLIENT_ID,scope:SCOPE,callback:onToken,error_callback:()=>{if(interactive)showLogin('ההתחברות בוטלה')}});
+  tc.requestAccessToken({prompt:interactive?(LS('gs_ok')?'':'consent'):''});
+ }
+ async function onToken(r){
+  if(!r||!r.access_token){showLogin('ההתחברות נכשלה');return}
+  token=r.access_token;tokenExp=Date.now()+(r.expires_in-60)*1000;LS('gs_ok','1');
+  try{
+   const u=await api('https://www.googleapis.com/oauth2/v3/userinfo');LS('gs_email',u.email||'');
+   if(LS('gs_owner')&&LS('gs_owner')!==u.email){LS('gs_sid',null);}
+   LS('gs_owner',u.email||'');
+   await openSheet();showUser(u.email);startSync();
+  }catch(e){console.error(e);st('⚠ שגיאה בחיבור ל-Google Sheets: '+(e.message||e));showLogin('שגיאה — נסה שוב')}
+ }
+ function logout(){
+  try{google.accounts.oauth2.revoke(token,()=>{})}catch(e){}
+  token=null;LS('gs_ok',null);LS('gs_sid',null);LS('gs_owner',null);sid=null;clearInterval(poll);DB=null;
+  st('📱 נשמר מקומית במכשיר');showLogin();
+ }
+ async function api(url,opt){
+  if(!token||Date.now()>tokenExp)throw new Error('AUTH');
+  opt=opt||{};opt.headers=Object.assign({Authorization:'Bearer '+token},opt.headers||{});
+  const r=await fetch(url,opt);
+  if(r.status===401){token=null;throw new Error('AUTH')}
+  if(!r.ok){let t='';try{t=(await r.json()).error.message}catch(e){}throw new Error(r.status+' '+t)}
+  return r.json();
+ }
+ const SH='https://sheets.googleapis.com/v4/spreadsheets/';
+ async function openSheet(){
+  sid=LS('gs_sid');
+  if(sid){try{await api(SH+sid+'?fields=spreadsheetId');return}catch(e){if(e.message==='AUTH')throw e;sid=null}}
+  const q=encodeURIComponent("name='"+TITLE+"' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false");
+  const f=await api('https://www.googleapis.com/drive/v3/files?q='+q+'&fields=files(id)&orderBy=createdTime');
+  if(f.files&&f.files.length){sid=f.files[0].id}
+  else{
+   const c=await api(SH,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({properties:{title:TITLE,locale:'iw_IL'},sheets:[{properties:{title:'שיבוצים',rightToLeft:true}},{properties:{title:'data'}}]})});
+   sid=c.spreadsheetId;
+   await api(SH+sid+'/values/data!A1:C1?valueInputOption=RAW',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[['key','json','t']]})});
+  }
+  LS('gs_sid',sid);
+ }
+ async function loadAll(){
+  const r=await api(SH+sid+'/values/data!A2:C?majorDimension=ROWS');
+  const out={};rows={};
+  (r.values||[]).forEach((v,i)=>{if(!v[0])return;rows[v[0]]=i+2;out[v[0]]={j:v[1]||'',t:+(v[2]||0)}});
+  return out;
+ }
+ async function setKey(key,j,t){
+  const body=JSON.stringify({values:[[key,j,String(t)]]});
+  if(rows[key]){await api(SH+sid+'/values/data!A'+rows[key]+':C'+rows[key]+'?valueInputOption=RAW',{method:'PUT',headers:{'Content-Type':'application/json'},body})}
+  else{const r=await api(SH+sid+'/values/data!A:C:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',{method:'POST',headers:{'Content-Type':'application/json'},body});
+   const m=/!A(\d+)/.exec((r.updates&&r.updates.updatedRange)||'');if(m)rows[key]=+m[1]}
+ }
+ function applyRemote(all){
+  let changed=false;
+  Object.keys(all).forEach(k=>{
+   const v=all[k];
+   if(k==='people'){
+    const lt=+(LS('luach_people_t')||0);
+    if(v.t>lt){try{const a=JSON.parse(v.j);if(Array.isArray(a)&&a.length){PEOPLE=a.filter(x=>x&&x.name).map(x=>({name:String(x.name).trim(),phone:String(x.phone||''),active:x.active!==false,mode:x.mode==='fixed'?'fixed':'flexible'}));NAMES=PEOPLE.map(p=>p.name);LS('luach_people',JSON.stringify(PEOPLE));LS('luach_names_list',JSON.stringify(NAMES));LS('luach_people_t',String(v.t));changed=true}}catch(e){}}
+    return;
+   }
+   const m=/^y(\d+)$/.exec(k);if(!m)return;
+   const y=m[1],l=E[y];if(l&&(l.t||0)>=(v.t||0))return;
+   let o={};try{o=JSON.parse(v.j)}catch(e){return}
+   E[y]={n:o.n||{},z:o.z||{},k:o.k||{},u:o.u||{},t:v.t||0};changed=true;
+  });
+  if(changed){saveLocal();render(false)}
+ }
+ function mkDB(){
+  return{doc:p=>({set:async d=>{const k=p.split('/')[1];await setKey(k,d.j,d.t||0)},get:async()=>{const k=p.split('/')[1];const a=await loadAll();const v=a[k];return{exists:!!v,data:()=>v?{j:v.j,t:v.t}:null}}}),collection:()=>({onSnapshot:()=>{}})};
+ }
+ async function sync(){
+  if(inflight||!token||!sid)return;inflight=true;
+  try{
+   const all=await loadAll();
+   applyRemote(all);
+   if(first){first=false;
+    for(const y of Object.keys(E)){if(has(E[y])&&(!all['y'+y]||(E[y].t||0)>all['y'+y].t))await pushYear(y)}
+    if(!all.people&&LS('luach_people'))await pushPeople();
+    else if(all.people&&+(LS('luach_people_t')||0)>all.people.t)await pushPeople();
+   }
+   st('☁ מסונכרן עם Google Sheets · '+new Date().toLocaleTimeString('he-IL'));
+  }catch(e){
+   if(e.message==='AUTH'){st('⚠ החיבור פג · נשמר במכשיר');showLogin('החיבור ל-Google פג')}
+   else st('⚠ שגיאת סנכרון · נשמר במכשיר');
+  }finally{inflight=false}
+ }
+ async function pushYear(y){
+  const j=JSON.stringify({n:E[y].n||{},z:E[y].z||{},k:E[y].k||{},u:E[y].u||{}});
+  await setKey('y'+y,j,E[y].t||Date.now());
+  schedView();
+ }
+ function schedView(){clearTimeout(timer);timer=setTimeout(writeView,4000)}
+ async function writeView(){
+  if(!token||!sid)return;
+  try{
+   const out=[['שנה','פרשה','תאריך','אבא של שבת','אזכרות']];
+   DATA.forEach((d,y)=>{const e=E[y];if(!e)return;d.r.forEach((r,i)=>{const n=(e.n||{})[i],z=(e.z||{})[i];if(n||z)out.push([d.t,r[1],r[3],n||'',z||''])})});
+   await api(SH+sid+'/values/'+encodeURIComponent('שיבוצים')+':clear',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+   await api(SH+sid+'/values/'+encodeURIComponent('שיבוצים')+'!A1?valueInputOption=RAW',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:out})});
+  }catch(e){}
+ }
+ async function pushPeople(){
+  if(!token||!sid)return;
+  try{await setKey('people',JSON.stringify(PEOPLE),+(LS('luach_people_t')||Date.now()))}catch(e){if(e.message==='AUTH')showLogin('החיבור ל-Google פג')}
+ }
+ function startSync(){
+  DB={};
+  window.push=function(y){saveLocal();if(!token||!sid){st('📱 נשמר מקומית · יש להתחבר');return}
+   st('שומר…');
+   pushYear(y).then(()=>st('☁ נשמר ב-Google Sheets · '+new Date().toLocaleTimeString('he-IL'))).catch(e=>{
+    if(e.message==='AUTH'){st('⚠ החיבור פג · נשמר במכשיר');showLogin('החיבור ל-Google פג')}else st('⚠ השמירה נכשלה · נשמר במכשיר')})};
+  sync();clearInterval(poll);poll=setInterval(sync,30000);
+ }
+ function init(){
+  if(GOOGLE_CLIENT_ID.startsWith('PASTE')){st('⚠ חסר Client ID של Google');return}
+  st('📱 נשמר מקומית · יש להתחבר');
+  if(LS('gs_ok')){showLogin('ההתחברות ל-Google תתבצע בלחיצה');}else showLogin();
+  if(LS('gs_ok')){const t=setInterval(()=>{if(window.google&&google.accounts){clearInterval(t);try{login(false)}catch(e){}}},400);setTimeout(()=>clearInterval(t),8000)}
+ }
+ return{init,pushPeople};
+})();
+window.GS=GS;GS.init();
 </script>
 </body></html>
